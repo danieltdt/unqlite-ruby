@@ -1,6 +1,6 @@
-# Unqlite
+# UnQLite for Ruby
 
-TODO: Write a gem description
+UnQLite interface for ruby programs
 
 ## Installation
 

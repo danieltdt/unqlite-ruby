@@ -5,6 +5,9 @@
 .yardoc
 Gemfile.lock
 InstalledFiles
+*.so
+*.bundle
+*.o
 _yardoc
 coverage
 doc/

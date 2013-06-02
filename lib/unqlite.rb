@@ -1,5 +1,6 @@
+require 'unqlite/unqlite_native'
 require "unqlite/version"
 
-module Unqlite
+module UnQLite
   # Your code goes here...
 end
