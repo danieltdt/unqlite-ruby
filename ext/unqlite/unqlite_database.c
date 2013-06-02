@@ -28,7 +28,7 @@ static VALUE initialize(VALUE self, VALUE rb_string)
   // Ensure the given argument is a ruby string
   Check_Type(rb_string, T_STRING);
 
-  // Get unqlite stored inside ruby structure
+  // Get class context
   Data_Get_Struct(self, unqliteRuby, ctx);
 
   // Transform Ruby string into C string
@@ -50,14 +50,66 @@ static VALUE initialize(VALUE self, VALUE rb_string)
   return self;
 }
 
-static VALUE unqlite_database_store(VALUE self)
+static VALUE unqlite_database_store(VALUE self, VALUE key, VALUE value)
 {
-  return rb_str_new2("TODO: implement #store");
+  void *c_key;
+  void *c_value;
+  int rc;
+  unqliteRubyPtr ctx;
+
+  // Ensure the given argument is a ruby string
+  Check_Type(key, T_STRING);
+  Check_Type(value, T_STRING);
+
+  // Get class context
+  Data_Get_Struct(self, unqliteRuby, ctx);
+
+  // Transform Ruby string into C string
+  c_key = calloc(RSTRING_LEN(key), sizeof(char));
+  memcpy(c_key, StringValuePtr(key), RSTRING_LEN(key));
+
+  c_value = calloc(RSTRING_LEN(value), sizeof(char));
+  memcpy(c_value, StringValuePtr(value), RSTRING_LEN(value));
+
+  rc = unqlite_kv_store(ctx->pDb, c_key, -1, c_value, sizeof(c_value));
+
+  if( rc != UNQLITE_OK ) {
+    if( rc != UNQLITE_BUSY && rc != UNQLITE_NOTIMPLEMENTED ) {
+      unqlite_rollback(ctx->pDb);
+    }
+  }
+
+  return INT2FIX(rc);
 }
 
-static VALUE unqlite_database_fetch(VALUE self)
+static VALUE unqlite_database_fetch(VALUE self, VALUE collection_name)
 {
-  return rb_str_new2("TODO: implement #fetch");
+  void *c_collection_name;
+  void *fetched_data;
+  unqlite_int64 n_bytes;
+  int rc;
+  unqliteRubyPtr ctx;
+
+  // Ensure the given argument is a ruby string
+  Check_Type(collection_name, T_STRING);
+
+  // Get class context
+  Data_Get_Struct(self, unqliteRuby, ctx);
+
+  // Transform Ruby string into C string
+  c_collection_name = calloc(RSTRING_LEN(collection_name), sizeof(char));
+  memcpy(c_collection_name, StringValuePtr(collection_name), RSTRING_LEN(collection_name));
+
+  rc = unqlite_kv_fetch(ctx->pDb, c_collection_name, -1, NULL, &n_bytes);
+  if( rc != UNQLITE_OK ) { return INT2FIX(rc); }
+
+  fetched_data = (char *)malloc(n_bytes);
+  if( fetched_data == NULL ) { return INT2FIX(UNQLITE_EMPTY); }
+
+  rc = unqlite_kv_fetch(ctx->pDb, c_collection_name, -1, fetched_data, &n_bytes);
+  if( rc == UNQLITE_OK ) { return rb_str_new2((char *)fetched_data); }
+
+  return INT2FIX(rc);
 }
 
 void Init_unqlite_database()
