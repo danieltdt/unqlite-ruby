@@ -1,10 +1,17 @@
 # UnQLite for Ruby
 
-UnQLite interface for ruby programs
+[UnQLite](http://www.unqlite.org/) interface for ruby programs.
+
+Note: This is an alpha version and many features are missing! But,
+I would love to merge some pull-requests to make it better (:
 
 ## Installation
 
-Add this line to your application's Gemfile:
+You have to install UnQLite into your system and compile it as a shared library. Unfortunately, 
+UnQLite doesn't have a Makefile (or something like that) to automate that step. If you are on
+linux, you can check [this gist](https://gist.github.com/danieltdt/5693070) and compile it using gcc.
+
+After installing UnQLite, add this line to your application's Gemfile:
 
     gem 'unqlite'
 
@@ -18,7 +25,9 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+    db = UnQLite::Database.new(":mem:")
+    db.store("key", "wabba")
+    db.fetch("key") # => "wabba"
 
 ## Contributing
 
