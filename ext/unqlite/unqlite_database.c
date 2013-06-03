@@ -39,13 +39,8 @@ static VALUE initialize(VALUE self, VALUE rb_string)
   // TODO: Always opening as a memory database. It should be a parameter.
   rc = unqlite_open(&ctx->pDb, c_string, UNQLITE_OPEN_IN_MEMORY);
 
-  // Verify if is everything ok
-  if( rc != UNQLITE_OK ){
-    // TODO: Return error code with a better message raising a UnQLite exception.
-    rb_raise(rb_eRuntimeError, "Couldn't open database");
-
-    return self;
-  }
+  // Check if any exception should be raised
+  CHECK(ctx->pDb, rc);
 
   return self;
 }
@@ -71,13 +66,11 @@ static VALUE unqlite_database_store(VALUE self, VALUE key, VALUE value)
   c_value = calloc(RSTRING_LEN(value), sizeof(char));
   memcpy(c_value, StringValuePtr(value), RSTRING_LEN(value));
 
+  // Store it
   rc = unqlite_kv_store(ctx->pDb, c_key, -1, c_value, sizeof(c_value));
 
-  if( rc != UNQLITE_OK ) {
-    if( rc != UNQLITE_BUSY && rc != UNQLITE_NOTIMPLEMENTED ) {
-      unqlite_rollback(ctx->pDb);
-    }
-  }
+  // Check for errors
+  CHECK(ctx->pDb, rc);
 
   return INT2FIX(rc);
 }
@@ -100,16 +93,20 @@ static VALUE unqlite_database_fetch(VALUE self, VALUE collection_name)
   c_collection_name = calloc(RSTRING_LEN(collection_name), sizeof(char));
   memcpy(c_collection_name, StringValuePtr(collection_name), RSTRING_LEN(collection_name));
 
+  // Extract the data size, check for errors and return if any
   rc = unqlite_kv_fetch(ctx->pDb, c_collection_name, -1, NULL, &n_bytes);
-  if( rc != UNQLITE_OK ) { return INT2FIX(rc); }
+  CHECK(ctx->pDb, rc);
+  if( rc != UNQLITE_OK ) { return Qnil; }
 
+  // Data is empty
   fetched_data = (char *)malloc(n_bytes);
-  if( fetched_data == NULL ) { return INT2FIX(UNQLITE_EMPTY); }
+  if( fetched_data == NULL ) { return rb_str_new2(""); }
 
+  // Now, fetch the data
   rc = unqlite_kv_fetch(ctx->pDb, c_collection_name, -1, fetched_data, &n_bytes);
-  if( rc == UNQLITE_OK ) { return rb_str_new2((char *)fetched_data); }
+  CHECK(ctx->pDb, rc);
 
-  return INT2FIX(rc);
+  return rb_str_new2((char *)fetched_data);
 }
 
 void Init_unqlite_database()

@@ -17,5 +17,9 @@ module UnQLite
 
       assert_equal "wabba", @db.fetch("key")
     end
+
+    def test_fetch_unexisting_key
+      assert_raises(UnQLite::NotFoundException) { @db.fetch("xxx") }
+    end
   end
 end

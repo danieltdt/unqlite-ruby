@@ -6,6 +6,7 @@
 
 #include <unqlite_database.h>
 #include <unqlite_codes.h>
+#include <unqlite_exception.h>
 
 extern VALUE mUnQLite;
 
