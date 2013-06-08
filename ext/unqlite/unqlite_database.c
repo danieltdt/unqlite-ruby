@@ -36,14 +36,32 @@ static VALUE initialize(VALUE self, VALUE rb_string)
   memcpy(c_string, StringValuePtr(rb_string), RSTRING_LEN(rb_string));
 
   // Open database
-  // TODO: Always opening as a memory database. It should be a parameter.
-  rc = unqlite_open(&ctx->pDb, c_string, UNQLITE_OPEN_IN_MEMORY);
+  // TODO: Accept others open mode (read-only + mmap, etc. Check http://unqlite.org/c_api/unqlite_open.html)
+  rc = unqlite_open(&ctx->pDb, c_string, UNQLITE_OPEN_CREATE);
 
   // Check if any exception should be raised
   CHECK(ctx->pDb, rc);
 
   return self;
 }
+
+static VALUE unqlite_database_close(VALUE self)
+{
+  int rc;
+  unqliteRubyPtr ctx;
+
+  // Get class context
+  Data_Get_Struct(self, unqliteRuby, ctx);
+
+  // Close database
+  rc = unqlite_close(ctx->pDb);
+
+  // Check for errors
+  CHECK(ctx->pDb, rc);
+
+  return Qtrue;
+}
+
 
 static VALUE unqlite_database_store(VALUE self, VALUE key, VALUE value)
 {
@@ -72,7 +90,7 @@ static VALUE unqlite_database_store(VALUE self, VALUE key, VALUE value)
   // Check for errors
   CHECK(ctx->pDb, rc);
 
-  return INT2FIX(rc);
+  return Qtrue;
 }
 
 static VALUE unqlite_database_fetch(VALUE self, VALUE collection_name)
@@ -109,6 +127,57 @@ static VALUE unqlite_database_fetch(VALUE self, VALUE collection_name)
   return rb_str_new2((char *)fetched_data);
 }
 
+static VALUE unqlite_database_begin_transaction(VALUE self)
+{
+  int rc;
+  unqliteRubyPtr ctx;
+
+  // Get class context
+  Data_Get_Struct(self, unqliteRuby, ctx);
+
+  // Begin write-transaction manually
+  rc = unqlite_begin(ctx->pDb);
+
+  // Check for errors
+  CHECK(ctx->pDb, rc);
+
+  return Qtrue;
+}
+
+static VALUE unqlite_database_commit(VALUE self)
+{
+  int rc;
+  unqliteRubyPtr ctx;
+
+  // Get class context
+  Data_Get_Struct(self, unqliteRuby, ctx);
+
+  // Commit transaction
+  rc = unqlite_commit(ctx->pDb);
+
+  // Check for errors
+  CHECK(ctx->pDb, rc);
+
+  return Qtrue;
+}
+
+static VALUE unqlite_database_rollback(VALUE self)
+{
+  int rc;
+  unqliteRubyPtr ctx;
+
+  // Get class context
+  Data_Get_Struct(self, unqliteRuby, ctx);
+
+  // Rollback transaction
+  rc = unqlite_rollback(ctx->pDb);
+
+  // Check for errors
+  CHECK(ctx->pDb, rc);
+
+  return Qtrue;
+}
+
 void Init_unqlite_database()
 {
 #if 0
@@ -123,5 +192,10 @@ void Init_unqlite_database()
   rb_define_method(cUnQLiteDatabase, "store", unqlite_database_store, 2);
   rb_define_method(cUnQLiteDatabase, "fetch", unqlite_database_fetch, 1);
 
+  rb_define_method(cUnQLiteDatabase, "begin_transaction", unqlite_database_begin_transaction, 0);
+  rb_define_method(cUnQLiteDatabase, "commit", unqlite_database_commit, 0);
+  rb_define_method(cUnQLiteDatabase, "rollback", unqlite_database_rollback, 0);
+
   rb_define_method(cUnQLiteDatabase, "initialize", initialize, 1);
+  rb_define_method(cUnQLiteDatabase, "close", unqlite_database_close, 0);
 }
