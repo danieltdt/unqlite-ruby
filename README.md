@@ -25,9 +25,25 @@ Or install it yourself as:
 
 ## Usage
 
+For in-memory databases
+
     db = UnQLite::Database.new(":mem:")
     db.store("key", "wabba")
     db.fetch("key") # => "wabba"
+    db.close
+
+For regular databases
+
+    db = UnQLite::Database.new("database.db") # You may also give a full path
+    db.store("key", "wabba")
+    db.fetch("key") # => "wabba"
+
+    # Now you have to commit your changes or close your database
+    db.commit
+
+    db.store("key2", "wabba2")
+    db.close # Will automatically commit
+
 
 ## Contributing
 
