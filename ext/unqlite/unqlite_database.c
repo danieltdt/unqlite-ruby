@@ -217,6 +217,7 @@ void Init_unqlite_database()
 
   rb_define_method(cUnQLiteDatabase, "store", unqlite_database_store, 2);
   rb_define_method(cUnQLiteDatabase, "fetch", unqlite_database_fetch, 1);
+  rb_define_method(cUnQLiteDatabase, "delete", unqlite_database_delete, 1);
 
   rb_define_method(cUnQLiteDatabase, "begin_transaction", unqlite_database_begin_transaction, 0);
   rb_define_method(cUnQLiteDatabase, "commit", unqlite_database_commit, 0);
