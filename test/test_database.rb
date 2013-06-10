@@ -25,6 +25,13 @@ module UnQLite
       assert_equal("wabba", @db.fetch("key"))
     end
 
+    def test_delete
+      @db.store("key", "wabba")
+      assert_equal("wabba", @db.fetch("key"))
+      @db.delete("key")
+      assert_raises(UnQLite::NotFoundException) { @db.fetch("key") }
+    end
+
     def test_exceptions
       # TODO: Test other errors
       assert_raises(UnQLite::NotFoundException) { @db.fetch("xxx") }
