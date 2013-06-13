@@ -2,11 +2,6 @@
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
-#test = File.expand_path('../test', __FILE__)
-#$LOAD_PATH.unshift(test) unless $LOAD_PATH.include?(test)
-#
-#$LOAD_PATH.unshift('../ext/unqlite')
-
 require 'unqlite/version'
 
 Gem::Specification.new do |spec|
