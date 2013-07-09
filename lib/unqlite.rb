@@ -1,7 +1,4 @@
-require 'unqlite/unqlite_native'
+require 'unqlite/native'
+require 'unqlite/database'
 require 'unqlite/errors'
 require 'unqlite/version'
-
-module UnQLite
-  # Your code goes here...
-end

@@ -22,6 +22,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "bundler",        "~> 1.3"
   spec.add_development_dependency "rake",           "~> 10.0.4"
   spec.add_development_dependency "ZenTest",        "~> 4.9.2"
-  spec.add_development_dependency "rake-compiler",  "~> 0.8.3"
+  spec.add_development_dependency "ffi",            "~> 1.9.0"
   spec.add_development_dependency "minitest",       "~> 5.0.3"
 end
