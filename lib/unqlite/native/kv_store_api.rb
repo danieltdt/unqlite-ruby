@@ -1,9 +1,29 @@
 module UnQLite
   module Native
-    module Database
+    module KVStoreAPI
       extend FFI::Library
 
       ffi_lib 'unqlite'
+
+      # Error checking
+      def self.attach_function(*args)
+        method_name = args.first
+        method_name_for_original = "#{method_name}_without_error_checking"
+
+        super(*args)
+        alias_method(method_name_for_original, method_name)
+
+        define_method method_name do |*method_args, &block|
+          public_send(method_name_for_original.to_sym, *method_args, &block).tap do |rc|
+            exception = UnQLite::Exception.for_code(rc)
+
+            raise exception.new if exception
+          end
+        end
+
+        module_function method_name
+        module_function method_name_for_original
+      end
 
       class EngineHandler
         extend FFI::DataConverter

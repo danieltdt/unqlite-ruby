@@ -1,7 +1,2 @@
 require 'ffi'
-require 'unqlite/native/database'
-
-module UnQLite
-  module Native
-  end
-end
+require 'unqlite/native/kv_store_api'
