@@ -25,6 +25,12 @@ module UnQLite
       assert_equal("wabba", @db.fetch("key"))
     end
 
+    def test_fetchlonger
+      @db.store("key", "wabbawabba")
+
+      assert_equal("wabbawabba", @db.fetch("key"))
+    end
+
     def test_delete
       @db.store("key", "wabba")
       assert_equal("wabba", @db.fetch("key"))

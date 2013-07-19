@@ -62,7 +62,6 @@ static VALUE unqlite_database_close(VALUE self)
   return Qtrue;
 }
 
-
 static VALUE unqlite_database_store(VALUE self, VALUE key, VALUE value)
 {
   void *c_key;
@@ -78,14 +77,16 @@ static VALUE unqlite_database_store(VALUE self, VALUE key, VALUE value)
   Data_Get_Struct(self, unqliteRuby, ctx);
 
   // Transform Ruby string into C string
-  c_key = calloc(RSTRING_LEN(key), sizeof(char));
+  // reserve an additional character for zero-terminator
+  c_key = calloc(RSTRING_LEN(key)+1, sizeof(char));
   memcpy(c_key, StringValuePtr(key), RSTRING_LEN(key));
 
-  c_value = calloc(RSTRING_LEN(value), sizeof(char));
+  // reserve an additional character for zero-terminator
+  c_value = calloc(RSTRING_LEN(value)+1, sizeof(char));
   memcpy(c_value, StringValuePtr(value), RSTRING_LEN(value));
 
-  // Store it
-  rc = unqlite_kv_store(ctx->pDb, c_key, -1, c_value, sizeof(c_value));
+  // Store it including the zero-terminator
+  rc = unqlite_kv_store(ctx->pDb, c_key, -1, c_value, RSTRING_LEN(value)+1);
 
   // Check for errors
   CHECK(ctx->pDb, rc);
