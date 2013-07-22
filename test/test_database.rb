@@ -31,6 +31,42 @@ module UnQLite
       assert_equal("wabbawabba", @db.fetch("key"))
     end
 
+    ## TODO: maybe change the API around fetch() so it e.g. returns bool false instead raising an exception, feels weird to use exception handling block in testcases.
+    def test_store_multiple_uncommitted_with_failing_fetch_between
+      @db.store("key1", "wabbauno")
+      begin
+        ## the fetch will fail because 'key" doesn't exist and in turn this will trigger a db rollback which erases all data that was not comitted yet.
+        @db.fetch("key")
+      rescue => e
+        ;
+      end
+      @db.store("key2", "wabbawabba")
+
+      assert_equal("wabbauno", @db.fetch("key1"))
+    end
+
+    def test_store_multiple_committed_with_failing_fetch_between
+      @db.store("key1", "wabbauno")
+      @db.commit
+      begin
+        ## the fetch will fail because 'key" doesn't exist but we won't lose any data because everything before was already committed
+        @db.fetch("key")
+      rescue => e
+        ;
+      end
+      @db.store("key2", "wabbawabba")
+
+      assert_equal("wabbauno", @db.fetch("key1"))
+    end
+
+    def test_store_fetch_multiple
+      @db.store("key1", "wabbauno")
+      @db.store("key2", "wabbawabba")
+
+      assert_equal("wabbauno", @db.fetch("key1"))
+      assert_equal("wabbawabba", @db.fetch("key2"))
+    end
+
     def test_delete
       @db.store("key", "wabba")
       assert_equal("wabba", @db.fetch("key"))
