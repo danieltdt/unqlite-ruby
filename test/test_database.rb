@@ -19,6 +19,12 @@ module UnQLite
       assert @db.store("key", "stored content")
     end
 
+    def test_append
+      assert @db.store("key", "stored content")
+      assert @db.append("key", " with appendix")
+      assert_equal "stored content with appendix", @db.fetch("key")
+    end
+
     def test_fetch
       @db.store("key", "wabba")
 
