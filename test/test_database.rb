@@ -99,6 +99,14 @@ module UnQLite
       assert_equal "data", @db.fetch("key")
       assert_nil @db["nokey"]
     end
+
+    def test_has_key
+      @db.store "key", "value"
+      [ :has_key?, :include?, :key? ].each do |nm|
+        assert_equal true, @db.send(nm, "key")
+        assert_equal false, @db.send(nm, "value")
+      end
+    end
   end
 
   class TestInMemoryDatabase < Minitest::Test

@@ -159,6 +159,31 @@ static VALUE unqlite_database_fetch(VALUE self, VALUE collection_name)
   return rb_string;
 }
 
+static VALUE unqlite_database_has_key(VALUE self, VALUE collection_name)
+{
+  unqliteRubyPtr ctx;
+  int rc;
+  unqlite_int64 n_bytes;
+
+  // Ensure the given argument is a ruby string
+  Check_Type(collection_name, T_STRING);
+
+  // Get class context
+  Data_Get_Struct(self, unqliteRuby, ctx);
+
+  // Extract the data size, check for errors and return if any
+  rc = unqlite_kv_fetch(ctx->pDb, StringValuePtr(collection_name), RSTRING_LEN(collection_name), NULL, &n_bytes);
+  if (rc == UNQLITE_NOTFOUND)
+  {
+     return Qfalse;
+  }
+  else
+  {
+     CHECK(ctx->pDb, rc);
+     return Qtrue;
+  }
+}
+
 static VALUE unqlite_database_aref(VALUE self, VALUE collection_name)
 {
   unqlite_int64 n_bytes;
@@ -309,6 +334,9 @@ void Init_unqlite_database()
 
   rb_define_method(cUnQLiteDatabase, "[]", unqlite_database_aref, 1);
   rb_define_method(cUnQLiteDatabase, "[]=", unqlite_database_store, 2);
+  rb_define_method(cUnQLiteDatabase, "has_key?", unqlite_database_has_key, 1);
+  rb_define_method(cUnQLiteDatabase, "include?", unqlite_database_has_key, 1);
+  rb_define_method(cUnQLiteDatabase, "key?", unqlite_database_has_key, 1);
 
   rb_define_method(cUnQLiteDatabase, "each", unqlite_database_each, 0);
 
