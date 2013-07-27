@@ -107,6 +107,13 @@ module UnQLite
         assert_equal false, @db.send(nm, "value")
       end
     end
+
+    def test_closed?
+      assert !@db.closed?
+      @db.close
+      assert @db.closed?
+    end
+
   end
 
   class TestInMemoryDatabase < Minitest::Test

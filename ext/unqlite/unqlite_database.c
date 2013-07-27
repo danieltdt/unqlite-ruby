@@ -66,6 +66,23 @@ static VALUE unqlite_database_close(VALUE self)
   return Qtrue;
 }
 
+static VALUE unqlite_database_closed(VALUE self)
+{
+  unqliteRubyPtr ctx;
+
+  // Get class context
+  Data_Get_Struct(self, unqliteRuby, ctx);
+
+  if (ctx->pDb)
+  {
+     return Qfalse;
+  }
+  else
+  {
+     return Qtrue;
+  }
+}
+
 static VALUE unqlite_database_store(VALUE self, VALUE key, VALUE value)
 {
   int rc;
@@ -332,6 +349,7 @@ void Init_unqlite_database()
   rb_define_method(cUnQLiteDatabase, "fetch", unqlite_database_fetch, 1);
   rb_define_method(cUnQLiteDatabase, "delete", unqlite_database_delete, 1);
 
+  rb_define_method(cUnQLiteDatabase, "closed?", unqlite_database_closed, 0);
   rb_define_method(cUnQLiteDatabase, "[]", unqlite_database_aref, 1);
   rb_define_method(cUnQLiteDatabase, "[]=", unqlite_database_store, 2);
   rb_define_method(cUnQLiteDatabase, "has_key?", unqlite_database_has_key, 1);
