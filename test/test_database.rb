@@ -42,6 +42,14 @@ module UnQLite
       # TODO: Test other errors
       assert_raises(UnQLite::NotFoundException) { @db.fetch("xxx") }
     end
+
+    def test_raw_string
+      assert @db.store("key\x00value", "store\x00content")
+      assert_equal "store\x00content", @db.fetch("key\x00value")
+      assert_raises(UnQLite::NotFoundException) { @db.fetch("key") }
+      assert_raises(UnQLite::NotFoundException) { @db.fetch("key\x00") }
+      assert_raises(UnQLite::NotFoundException) { @db.fetch("key\x00value\x00") }
+    end
   end
 
   class TestInMemoryDatabase < Minitest::Test
