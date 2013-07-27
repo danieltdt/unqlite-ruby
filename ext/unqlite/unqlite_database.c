@@ -32,8 +32,7 @@ static VALUE initialize(VALUE self, VALUE rb_string)
   Data_Get_Struct(self, unqliteRuby, ctx);
 
   // Transform Ruby string into C string
-  c_string = calloc(RSTRING_LEN(rb_string), sizeof(char));
-  memcpy(c_string, StringValuePtr(rb_string), RSTRING_LEN(rb_string));
+  c_string = StringValueCStr(rb_string);
 
   // Open database
   // TODO: Accept others open mode (read-only + mmap, etc. Check http://unqlite.org/c_api/unqlite_open.html)
@@ -78,12 +77,10 @@ static VALUE unqlite_database_store(VALUE self, VALUE key, VALUE value)
 
   // Transform Ruby string into C string
   // reserve an additional character for zero-terminator
-  c_key = calloc(RSTRING_LEN(key)+1, sizeof(char));
-  memcpy(c_key, StringValuePtr(key), RSTRING_LEN(key));
+  c_key = StringValueCStr(key);
 
   // reserve an additional character for zero-terminator
-  c_value = calloc(RSTRING_LEN(value)+1, sizeof(char));
-  memcpy(c_value, StringValuePtr(value), RSTRING_LEN(value));
+  c_value = StringValueCStr(value);
 
   // Store it including the zero-terminator
   rc = unqlite_kv_store(ctx->pDb, c_key, -1, c_value, RSTRING_LEN(value)+1);
@@ -107,8 +104,7 @@ static VALUE unqlite_database_delete(VALUE self, VALUE key)
   Data_Get_Struct(self, unqliteRuby, ctx);
 
   // Transform Ruby string into C string
-  c_key = calloc(RSTRING_LEN(key), sizeof(char));
-  memcpy(c_key, StringValuePtr(key), RSTRING_LEN(key));
+  c_key = StringValueCStr(key);
 
   // Delete it
   rc = unqlite_kv_delete(ctx->pDb, c_key, -1);
@@ -135,8 +131,7 @@ static VALUE unqlite_database_fetch(VALUE self, VALUE collection_name)
   Data_Get_Struct(self, unqliteRuby, ctx);
 
   // Transform Ruby string into C string
-  c_collection_name = calloc(RSTRING_LEN(collection_name), sizeof(char));
-  memcpy(c_collection_name, StringValuePtr(collection_name), RSTRING_LEN(collection_name));
+  c_collection_name = StringValueCStr(collection_name);
 
   // Extract the data size, check for errors and return if any
   rc = unqlite_kv_fetch(ctx->pDb, c_collection_name, -1, NULL, &n_bytes);
