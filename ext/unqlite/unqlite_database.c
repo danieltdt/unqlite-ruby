@@ -6,14 +6,14 @@ static void deallocate(void *ctx)
 {
   unqliteRubyPtr c = (unqliteRubyPtr) ctx;
   unqlite *pDb = c->pDb;
-
+  c->pDb = 0;
   if (pDb) unqlite_close(pDb);
   xfree(c);
 }
 
 static VALUE allocate(VALUE klass)
 {
-  unqliteRubyPtr ctx = malloc(sizeof(unqliteRuby));
+  unqliteRubyPtr ctx = ALLOC(unqliteRuby);
   ctx->pDb = NULL;
 
   return Data_Wrap_Struct(klass, NULL, deallocate, ctx);
@@ -52,11 +52,16 @@ static VALUE unqlite_database_close(VALUE self)
   // Get class context
   Data_Get_Struct(self, unqliteRuby, ctx);
 
-  // Close database
-  rc = unqlite_close(ctx->pDb);
+  if (ctx->pDb)
+  {
+     // Close database
+     rc = unqlite_close(ctx->pDb);
 
-  // Check for errors
-  CHECK(ctx->pDb, rc);
+     // Check for errors
+     CHECK(ctx->pDb, rc);
+  }
+
+  ctx->pDb = 0;
 
   return Qtrue;
 }
