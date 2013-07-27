@@ -114,6 +114,15 @@ module UnQLite
       assert @db.closed?
     end
 
+    def test_clear
+      @db.store "key", "value"
+      @db.store "foo", "bar"
+      @db.clear
+      assert_raises(UnQLite::NotFoundException) { @db.fetch("key") }
+      assert_raises(UnQLite::NotFoundException) { @db.fetch("foo") }
+      @db.store "key", "value"
+      assert_equal "value", @db.fetch("key")
+    end
   end
 
   class TestInMemoryDatabase < Minitest::Test
