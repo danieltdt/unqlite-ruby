@@ -92,6 +92,13 @@ module UnQLite
       @db.each { |key, value| all << [key, value] }
       assert_equal pairs, all.sort_by { |k,v| k }
     end
+
+    def test_aref
+      @db["key"] = "data"
+      assert_equal "data", @db["key"]
+      assert_equal "data", @db.fetch("key")
+      assert_nil @db["nokey"]
+    end
   end
 
   class TestInMemoryDatabase < Minitest::Test

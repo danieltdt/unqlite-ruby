@@ -159,6 +159,40 @@ static VALUE unqlite_database_fetch(VALUE self, VALUE collection_name)
   return rb_string;
 }
 
+static VALUE unqlite_database_aref(VALUE self, VALUE collection_name)
+{
+  unqlite_int64 n_bytes;
+  int rc;
+  unqliteRubyPtr ctx;
+  VALUE rb_string;
+
+  // Ensure the given argument is a ruby string
+  Check_Type(collection_name, T_STRING);
+
+  // Get class context
+  Data_Get_Struct(self, unqliteRuby, ctx);
+
+  // Extract the data size, check for errors and return if any
+  rc = unqlite_kv_fetch(ctx->pDb, StringValuePtr(collection_name), RSTRING_LEN(collection_name), NULL, &n_bytes);
+
+  if (rc == UNQLITE_NOTFOUND)
+     return Qnil;
+
+  CHECK(ctx->pDb, rc);
+  if( rc != UNQLITE_OK ) { return Qnil; }
+
+  // Allocate string buffer object
+  rb_string = rb_str_buf_new(n_bytes);
+
+  // Now, fetch the data
+  rc = unqlite_kv_fetch(ctx->pDb, StringValuePtr(collection_name), RSTRING_LEN(collection_name), RSTRING_PTR(rb_string), &n_bytes);
+  CHECK(ctx->pDb, rc);
+
+  rb_str_set_len(rb_string, n_bytes);
+
+  return rb_string;
+}
+
 static VALUE unqlite_database_begin_transaction(VALUE self)
 {
   int rc;
@@ -272,6 +306,9 @@ void Init_unqlite_database()
   rb_define_method(cUnQLiteDatabase, "append", unqlite_database_append, 2);
   rb_define_method(cUnQLiteDatabase, "fetch", unqlite_database_fetch, 1);
   rb_define_method(cUnQLiteDatabase, "delete", unqlite_database_delete, 1);
+
+  rb_define_method(cUnQLiteDatabase, "[]", unqlite_database_aref, 1);
+  rb_define_method(cUnQLiteDatabase, "[]=", unqlite_database_store, 2);
 
   rb_define_method(cUnQLiteDatabase, "each", unqlite_database_each, 0);
 
