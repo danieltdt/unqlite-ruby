@@ -84,6 +84,14 @@ module UnQLite
       assert_raises(UnQLite::NotFoundException) { @db.fetch("key\x00") }
       assert_raises(UnQLite::NotFoundException) { @db.fetch("key\x00value\x00") }
     end
+
+    def test_each
+      pairs = [ [ "alpha", "first" ], [ "beta", "second" ], [ "gamma", "third" ] ]
+      pairs.each { |pair| @db.store(*pair) }
+      all = []
+      @db.each { |key, value| all << [key, value] }
+      assert_equal pairs, all.sort_by { |k,v| k }
+    end
   end
 
   class TestInMemoryDatabase < Minitest::Test

@@ -210,6 +210,53 @@ static VALUE unqlite_database_rollback(VALUE self)
   return Qtrue;
 }
 
+static VALUE unqlite_database_each(VALUE self)
+{
+  int rc;
+  unqliteRubyPtr ctx;
+  unqlite_kv_cursor *cursor;
+
+  // Get class context
+  Data_Get_Struct(self, unqliteRuby, ctx);
+
+  rc = unqlite_kv_cursor_init(ctx->pDb, &cursor);
+  CHECK(ctx->pDb, rc);
+
+  rc = unqlite_kv_cursor_first_entry(cursor);
+  while (unqlite_kv_cursor_valid_entry(cursor))
+  {
+     int key_size;
+     unqlite_int64 data_size;
+     VALUE rb_key, rb_data;
+
+     // Create Ruby String with key
+     rc = unqlite_kv_cursor_key(cursor, NULL, &key_size);
+     CHECK(ctx->pDb, rc);
+     rb_key = rb_str_buf_new(key_size);
+     rc = unqlite_kv_cursor_key(cursor, RSTRING_PTR(rb_key), &key_size);
+     CHECK(ctx->pDb, rc);
+     rb_str_set_len(rb_key, key_size);
+
+     // Create Ruby String with data
+     rc = unqlite_kv_cursor_data(cursor, NULL, &data_size);
+     CHECK(ctx->pDb, rc);
+     rb_data = rb_str_buf_new(data_size);
+     rc = unqlite_kv_cursor_data(cursor, RSTRING_PTR(rb_data), &data_size);
+     CHECK(ctx->pDb, rc);
+     rb_str_set_len(rb_data, data_size);
+
+     // Yield to block
+     rb_yield_values(2, rb_key, rb_data);
+
+     rc = unqlite_kv_cursor_next_entry(cursor);
+  }
+
+  rc = unqlite_kv_cursor_release(ctx->pDb, cursor);
+  CHECK(ctx->pDb, rc);
+
+  return Qtrue;
+}
+
 void Init_unqlite_database()
 {
 #if 0
@@ -225,6 +272,8 @@ void Init_unqlite_database()
   rb_define_method(cUnQLiteDatabase, "append", unqlite_database_append, 2);
   rb_define_method(cUnQLiteDatabase, "fetch", unqlite_database_fetch, 1);
   rb_define_method(cUnQLiteDatabase, "delete", unqlite_database_delete, 1);
+
+  rb_define_method(cUnQLiteDatabase, "each", unqlite_database_each, 0);
 
   rb_define_method(cUnQLiteDatabase, "begin_transaction", unqlite_database_begin_transaction, 0);
   rb_define_method(cUnQLiteDatabase, "commit", unqlite_database_commit, 0);
