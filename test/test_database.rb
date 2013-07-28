@@ -189,5 +189,40 @@ module UnQLite
       assert_equal("wabba", @db.fetch("manual2"))
       assert_raises(UnQLite::NotFoundException) { @db.fetch("will_disapper") }
     end
+
+    def test_end_transaction_commit
+      @db.begin_transaction
+      @db.store "manual", "wabba"
+      @db.end_transaction(true)
+      assert_equal "wabba", @db.fetch("manual")
+    end
+
+    def test_end_transaction_rollback
+      @db.begin_transaction
+      @db.store "will_disappear", "wabba"
+      @db.end_transaction(false)
+      assert_raises(UnQLite::NotFoundException) { @db.fetch("will_disappear") }
+    end
+
+    def test_transaction
+      @db.transaction do
+        @db.store "alpha", "first"
+        @db.store "beta", "second"
+      end
+      assert_equal "first", @db.fetch("alpha")
+      assert_equal "second", @db.fetch("beta")
+    end
+
+    def test_transaction_failed
+      assert_raises Exception do
+        @db.transaction do
+          @db.store "alpha", "first"
+          @db.store "beta", "second"
+          raise Exception
+        end
+      end
+      assert_raises(UnQLite::NotFoundException) { @db.fetch("alpha") }
+      assert_raises(UnQLite::NotFoundException) { @db.fetch("beta") }
+    end
   end
 end

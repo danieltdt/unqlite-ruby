@@ -30,4 +30,5 @@ module UnQLite
   class CantOpenDatabaseException < Exception; end
   class ReadOnlyException < Exception; end
   class LockProtocolException < Exception; end
+  class UnsupportedException < Exception; end
 end

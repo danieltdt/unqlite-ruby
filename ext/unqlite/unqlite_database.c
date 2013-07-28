@@ -286,6 +286,39 @@ static VALUE unqlite_database_rollback(VALUE self)
   return Qtrue;
 }
 
+static VALUE unqlite_database_end_transaction(VALUE self, VALUE commit)
+{
+  if (RTEST(commit))
+    return unqlite_database_commit(self);
+  else
+    return unqlite_database_rollback(self);
+}
+
+static VALUE unqlite_database_transaction_rescue(VALUE self, VALUE error)
+{
+  unqlite_database_rollback(self);
+  rb_exc_raise(error);
+}
+
+static VALUE unqlite_database_transaction_body(VALUE vdb)
+{
+  return rb_rescue(rb_yield, vdb, unqlite_database_transaction_rescue, vdb);
+}
+
+static VALUE unqlite_database_transaction_ensure(VALUE self, VALUE vbargs)
+{
+  return unqlite_database_commit(self);
+}
+
+static VALUE unqlite_database_transaction(VALUE self)
+{
+  VALUE vrv = unqlite_database_begin_transaction(self);
+  if (vrv != Qtrue)
+    return Qfalse;
+  rb_ensure(unqlite_database_transaction_body, self, unqlite_database_transaction_ensure, self);
+  return Qtrue;
+}
+
 static VALUE unqlite_database_each(VALUE self)
 {
   int rc;
@@ -467,8 +500,10 @@ void Init_unqlite_database()
   rb_define_method(cUnQLiteDatabase, "each_value", unqlite_database_each_value, 0);
 
   rb_define_method(cUnQLiteDatabase, "begin_transaction", unqlite_database_begin_transaction, 0);
+  rb_define_method(cUnQLiteDatabase, "end_transaction", unqlite_database_end_transaction, 1);
   rb_define_method(cUnQLiteDatabase, "commit", unqlite_database_commit, 0);
   rb_define_method(cUnQLiteDatabase, "rollback", unqlite_database_rollback, 0);
+  rb_define_method(cUnQLiteDatabase, "transaction", unqlite_database_transaction, 0);
 
   rb_define_method(cUnQLiteDatabase, "initialize", initialize, 1);
   rb_define_method(cUnQLiteDatabase, "close", unqlite_database_close, 0);
