@@ -87,10 +87,28 @@ module UnQLite
 
     def test_each
       pairs = [ [ "alpha", "first" ], [ "beta", "second" ], [ "gamma", "third" ] ]
+      [ :each, :each_pair ].each do |method_name|
+        pairs.each { |pair| @db.store(*pair) }
+        all = []
+        @db.send(method_name) { |key, value| all << [key, value] }
+        assert_equal pairs, all.sort_by { |k,v| k }
+      end
+    end
+
+    def test_each_key
+      pairs = [ [ "alpha", "first" ], [ "beta", "second" ], [ "gamma", "third" ] ]
       pairs.each { |pair| @db.store(*pair) }
       all = []
-      @db.each { |key, value| all << [key, value] }
-      assert_equal pairs, all.sort_by { |k,v| k }
+      @db.each_key { |key| all << key }
+      assert_equal pairs.map { |k,v| k }, all.sort
+    end
+
+    def test_each_value
+      pairs = [ [ "alpha", "first" ], [ "beta", "second" ], [ "gamma", "third" ] ]
+      pairs.each { |pair| @db.store(*pair) }
+      all = []
+      @db.each_value { |value| all << value }
+      assert_equal pairs.map { |k,v| v }, all.sort
     end
 
     def test_aref
