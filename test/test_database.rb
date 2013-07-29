@@ -120,7 +120,7 @@ module UnQLite
 
     def test_has_key
       @db.store "key", "value"
-      [ :has_key?, :include?, :key? ].each do |nm|
+      [ :has_key?, :include?, :key?, :member? ].each do |nm|
         assert_equal true, @db.send(nm, "key")
         assert_equal false, @db.send(nm, "value")
       end

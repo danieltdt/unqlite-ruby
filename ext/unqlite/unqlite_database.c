@@ -492,6 +492,7 @@ void Init_unqlite_database()
   rb_define_method(cUnQLiteDatabase, "has_key?", unqlite_database_has_key, 1);
   rb_define_method(cUnQLiteDatabase, "include?", unqlite_database_has_key, 1);
   rb_define_method(cUnQLiteDatabase, "key?", unqlite_database_has_key, 1);
+  rb_define_method(cUnQLiteDatabase, "member?", unqlite_database_has_key, 1);
   rb_define_method(cUnQLiteDatabase, "clear", unqlite_database_clear, 0);
 
   rb_define_method(cUnQLiteDatabase, "each", unqlite_database_each, 0);
