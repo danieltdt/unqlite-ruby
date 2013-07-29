@@ -6,14 +6,14 @@ static void deallocate(void *ctx)
 {
   unqliteRubyPtr c = (unqliteRubyPtr) ctx;
   unqlite *pDb = c->pDb;
-
+  c->pDb = 0;
   if (pDb) unqlite_close(pDb);
   xfree(c);
 }
 
 static VALUE allocate(VALUE klass)
 {
-  unqliteRubyPtr ctx = malloc(sizeof(unqliteRuby));
+  unqliteRubyPtr ctx = ALLOC(unqliteRuby);
   ctx->pDb = NULL;
 
   return Data_Wrap_Struct(klass, NULL, deallocate, ctx);
@@ -32,8 +32,7 @@ static VALUE initialize(VALUE self, VALUE rb_string)
   Data_Get_Struct(self, unqliteRuby, ctx);
 
   // Transform Ruby string into C string
-  c_string = calloc(RSTRING_LEN(rb_string), sizeof(char));
-  memcpy(c_string, StringValuePtr(rb_string), RSTRING_LEN(rb_string));
+  c_string = StringValueCStr(rb_string);
 
   // Open database
   // TODO: Accept others open mode (read-only + mmap, etc. Check http://unqlite.org/c_api/unqlite_open.html)
@@ -53,19 +52,22 @@ static VALUE unqlite_database_close(VALUE self)
   // Get class context
   Data_Get_Struct(self, unqliteRuby, ctx);
 
-  // Close database
-  rc = unqlite_close(ctx->pDb);
+  if (ctx->pDb)
+  {
+     // Close database
+     rc = unqlite_close(ctx->pDb);
 
-  // Check for errors
-  CHECK(ctx->pDb, rc);
+     // Check for errors
+     CHECK(ctx->pDb, rc);
+  }
+
+  ctx->pDb = 0;
 
   return Qtrue;
 }
 
 static VALUE unqlite_database_store(VALUE self, VALUE key, VALUE value)
 {
-  void *c_key;
-  void *c_value;
   int rc;
   unqliteRubyPtr ctx;
 
@@ -76,17 +78,8 @@ static VALUE unqlite_database_store(VALUE self, VALUE key, VALUE value)
   // Get class context
   Data_Get_Struct(self, unqliteRuby, ctx);
 
-  // Transform Ruby string into C string
-  // reserve an additional character for zero-terminator
-  c_key = calloc(RSTRING_LEN(key)+1, sizeof(char));
-  memcpy(c_key, StringValuePtr(key), RSTRING_LEN(key));
-
-  // reserve an additional character for zero-terminator
-  c_value = calloc(RSTRING_LEN(value)+1, sizeof(char));
-  memcpy(c_value, StringValuePtr(value), RSTRING_LEN(value));
-
-  // Store it including the zero-terminator
-  rc = unqlite_kv_store(ctx->pDb, c_key, -1, c_value, RSTRING_LEN(value)+1);
+  // Store it
+  rc = unqlite_kv_store(ctx->pDb, StringValuePtr(key), RSTRING_LEN(key), StringValuePtr(value), RSTRING_LEN(value));
 
   // Check for errors
   CHECK(ctx->pDb, rc);
@@ -96,7 +89,6 @@ static VALUE unqlite_database_store(VALUE self, VALUE key, VALUE value)
 
 static VALUE unqlite_database_delete(VALUE self, VALUE key)
 {
-  void *c_key;
   int rc;
   unqliteRubyPtr ctx;
 
@@ -106,27 +98,22 @@ static VALUE unqlite_database_delete(VALUE self, VALUE key)
   // Get class context
   Data_Get_Struct(self, unqliteRuby, ctx);
 
-  // Transform Ruby string into C string
-  c_key = calloc(RSTRING_LEN(key), sizeof(char));
-  memcpy(c_key, StringValuePtr(key), RSTRING_LEN(key));
-
   // Delete it
-  rc = unqlite_kv_delete(ctx->pDb, c_key, -1);
+  rc = unqlite_kv_delete(ctx->pDb, StringValuePtr(key), RSTRING_LEN(key));
 
   // Check for errors
   CHECK(ctx->pDb, rc);
 
   return Qtrue;
-
 }
 
 static VALUE unqlite_database_fetch(VALUE self, VALUE collection_name)
 {
-  void *c_collection_name;
   void *fetched_data;
   unqlite_int64 n_bytes;
   int rc;
   unqliteRubyPtr ctx;
+  VALUE rb_string;
 
   // Ensure the given argument is a ruby string
   Check_Type(collection_name, T_STRING);
@@ -134,24 +121,27 @@ static VALUE unqlite_database_fetch(VALUE self, VALUE collection_name)
   // Get class context
   Data_Get_Struct(self, unqliteRuby, ctx);
 
-  // Transform Ruby string into C string
-  c_collection_name = calloc(RSTRING_LEN(collection_name), sizeof(char));
-  memcpy(c_collection_name, StringValuePtr(collection_name), RSTRING_LEN(collection_name));
-
   // Extract the data size, check for errors and return if any
-  rc = unqlite_kv_fetch(ctx->pDb, c_collection_name, -1, NULL, &n_bytes);
+  rc = unqlite_kv_fetch(ctx->pDb, StringValuePtr(collection_name), RSTRING_LEN(collection_name), NULL, &n_bytes);
+
   CHECK(ctx->pDb, rc);
   if( rc != UNQLITE_OK ) { return Qnil; }
 
   // Data is empty
-  fetched_data = (char *)malloc(n_bytes);
+  fetched_data = (char *)ALLOC_N(char, n_bytes);
   if( fetched_data == NULL ) { return rb_str_new2(""); }
 
   // Now, fetch the data
-  rc = unqlite_kv_fetch(ctx->pDb, c_collection_name, -1, fetched_data, &n_bytes);
+  rc = unqlite_kv_fetch(ctx->pDb, StringValuePtr(collection_name), RSTRING_LEN(collection_name), fetched_data, &n_bytes);
   CHECK(ctx->pDb, rc);
 
-  return rb_str_new2((char *)fetched_data);
+  // create ruby String
+  rb_string = rb_str_new((char *)fetched_data, n_bytes);
+
+  // free data
+  xfree(fetched_data);
+
+  return rb_string;
 }
 
 static VALUE unqlite_database_begin_transaction(VALUE self)
