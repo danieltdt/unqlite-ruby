@@ -109,7 +109,6 @@ static VALUE unqlite_database_delete(VALUE self, VALUE key)
 
 static VALUE unqlite_database_fetch(VALUE self, VALUE collection_name)
 {
-  void *fetched_data;
   unqlite_int64 n_bytes;
   int rc;
   unqliteRubyPtr ctx;
@@ -127,19 +126,14 @@ static VALUE unqlite_database_fetch(VALUE self, VALUE collection_name)
   CHECK(ctx->pDb, rc);
   if( rc != UNQLITE_OK ) { return Qnil; }
 
-  // Data is empty
-  fetched_data = (char *)ALLOC_N(char, n_bytes);
-  if( fetched_data == NULL ) { return rb_str_new2(""); }
+  // Allocate string buffer object
+  rb_string = rb_str_buf_new(n_bytes);
 
   // Now, fetch the data
-  rc = unqlite_kv_fetch(ctx->pDb, StringValuePtr(collection_name), RSTRING_LEN(collection_name), fetched_data, &n_bytes);
+  rc = unqlite_kv_fetch(ctx->pDb, StringValuePtr(collection_name), RSTRING_LEN(collection_name), RSTRING_PTR(rb_string), &n_bytes);
   CHECK(ctx->pDb, rc);
 
-  // create ruby String
-  rb_string = rb_str_new((char *)fetched_data, n_bytes);
-
-  // free data
-  xfree(fetched_data);
+  rb_str_set_len(rb_string, n_bytes);
 
   return rb_string;
 }
