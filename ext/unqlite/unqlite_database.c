@@ -442,7 +442,6 @@ static VALUE unqlite_database_each_key(VALUE self)
   return Qtrue;
 }
 
-
 static VALUE unqlite_database_clear(VALUE self)
 {
   int rc;
@@ -470,6 +469,27 @@ static VALUE unqlite_database_clear(VALUE self)
   return Qtrue;
 }
 
+static VALUE unqlite_database_empty(VALUE self)
+{
+  int rc;
+  unqliteRubyPtr ctx;
+  unqlite_kv_cursor *cursor;
+  VALUE result;
+
+  Data_Get_Struct(self, unqliteRuby, ctx);
+
+  rc = unqlite_kv_cursor_init(ctx->pDb, &cursor);
+  CHECK(ctx->pDb, rc);
+
+  rc = unqlite_kv_cursor_first_entry(cursor);
+  result = unqlite_kv_cursor_valid_entry(cursor) ? Qfalse : Qtrue;
+
+  rc = unqlite_kv_cursor_release(ctx->pDb, cursor);
+  CHECK(ctx->pDb, rc);
+
+  return result;
+}
+
 void Init_unqlite_database()
 {
 #if 0
@@ -494,6 +514,7 @@ void Init_unqlite_database()
   rb_define_method(cUnQLiteDatabase, "key?", unqlite_database_has_key, 1);
   rb_define_method(cUnQLiteDatabase, "member?", unqlite_database_has_key, 1);
   rb_define_method(cUnQLiteDatabase, "clear", unqlite_database_clear, 0);
+  rb_define_method(cUnQLiteDatabase, "empty?", unqlite_database_empty, 0);
 
   rb_define_method(cUnQLiteDatabase, "each", unqlite_database_each, 0);
   rb_define_method(cUnQLiteDatabase, "each_pair", unqlite_database_each, 0);
