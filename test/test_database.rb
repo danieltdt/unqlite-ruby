@@ -231,4 +231,91 @@ module UnQLite
       assert_raises(UnQLite::NotFoundException) { @db.fetch("beta") }
     end
   end
+
+  class TestOpen < Minitest::Test
+    attr_reader :db_path
+    def setup
+      @db_path = File.join(Dir.tmpdir, Dir::Tmpname.make_tmpname("unqlite-ruby-test", nil))
+    end
+
+    def teardown
+      File.unlink db_path if File.exist?(db_path)
+    end
+
+    def test_open
+      db = UnQLite::Database.open(db_path)
+      db["key"] = "value"
+      assert db.kind_of?(UnQLite::Database)
+      assert !db.closed?
+      db.close
+    end
+
+    def test_open_block
+      UnQLite::Database.open(db_path) do |db|
+        assert db.kind_of?(UnQLite::Database)
+        assert !db.closed?
+        db["key"] = "value"
+      end
+    end
+
+    def test_open_create
+      UnQLite::Database.open(db_path, UnQLite::CREATE) do |db|
+        db["key"] = "value"
+      end
+      UnQLite::Database.open(db_path, UnQLite::READWRITE) do |db|
+        assert_equal "value", db["key"]
+      end
+    end
+
+    def test_open_readonly
+      UnQLite::Database.open(db_path) do |db|
+        db["key"] = "value"
+      end
+      UnQLite::Database.open(db_path, UnQLite::READONLY) do |db|
+        assert_equal "value", db["key"]
+        assert_raises(UnQLite::ReadOnlyException) { db["other"] = "something" }
+      end
+    end
+
+    def test_open_temp
+      UnQLite::Database.open(db_path, UnQLite::TEMP_DB) do |db|
+        db["key"] = "value"
+      end
+      assert !File.exist?(db_path)
+    end
+
+    def test_open_readwrite
+      UnQLite::Database.open(db_path) do |db|
+        db["key"] = "value"
+      end
+      UnQLite::Database.open(db_path, UnQLite::READWRITE) do |db|
+        assert_equal "value", db["key"]
+      end
+    end
+
+    def test_open_readwrite_noexist
+      assert_raises UnQLite::IOException do
+        UnQLite::Database.open(db_path, UnQLite::READWRITE) do |db|
+          db["key"] = "value"
+        end
+      end
+    end
+
+    def test_in_memory
+      UnQLite::Database.open(db_path, UnQLite::IN_MEMORY | UnQLite::CREATE) do |db|
+        db["key"] = "value"
+      end
+      assert !File.exist?(db_path)
+    end
+
+    def test_mmap
+      UnQLite::Database.open(db_path) do |db|
+        db["key"] = "value"
+      end
+      UnQLite::Database.open(db_path, UnQLite::READONLY | UnQLite::MMAP) do |db|
+        assert_equal "value", db["key"]
+        assert_raises(UnQLite::ReadOnlyException) { db["other"] = "something" }
+      end
+    end
+  end
 end

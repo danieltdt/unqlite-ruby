@@ -2,9 +2,8 @@
 
 VALUE cUnQLiteDatabase;
 
-static void deallocate(void *ctx)
+static void deallocate(unqliteRubyPtr c)
 {
-  unqliteRubyPtr c = (unqliteRubyPtr) ctx;
   unqlite *pDb = c->pDb;
   c->pDb = 0;
   if (pDb) unqlite_close(pDb);
@@ -19,24 +18,49 @@ static VALUE allocate(VALUE klass)
   return Data_Wrap_Struct(klass, NULL, deallocate, ctx);
 }
 
-static VALUE initialize(VALUE self, VALUE rb_string)
+/*
+ * call-seq:
+ *     UnQLite::Database.new(filename, flags = nil)
+ *     UnQLite::Database.new(filename, flags = nil) { |unqlite| ... }
+ *
+ * Creates a new UnQLite instance by opening an unqlite file named _filename_.
+ * If the file does not exist, a new file will be
+ * created. _flags_ may be one of the following:
+ *
+ * * *UnQlite::CREATE*  - Create if database does not exist.
+ * * *UnQLite::READWRITE*  - Open the database with READ+WRITE priviledged.
+ * * *UnQLite::READONLY* - Open the database in read-only mode.
+ * * *UnQLite::MMAP*  - Obtain a read-only memory view of the whole database.
+ * * *UnQLite::TEMP_DB*  - A private, temporary on-disk database will be created.
+ * * *UnQLite::IN_MEMORY*  - A private, on-memory database will be created.
+ * * *UnQLite::OMIT_JOURNALING*  - Disable journaling for this database.
+ * * *UnQLite::NOMUTEX*  - Disable the private recursive mutex associated with each database handle.
+ *
+ * If no _flags_ are specified, the UnQLite object will try to open the database
+ * file as a writer and will create it if it does not already exist
+ * (cf. flag <tt>CREATE</tt>).
+ */
+static VALUE initialize(int argc, VALUE* argv, VALUE self)
 {
-  void *c_string;
   int rc;
   unqliteRubyPtr ctx;
+  VALUE filename, vflags;
+  int flags = UNQLITE_OPEN_CREATE;
+
+  rb_scan_args(argc, argv, "11", &filename, &vflags);
+
+  // Get the flags if specified
+  if (!NIL_P(vflags))
+    flags = NUM2INT(vflags);
 
   // Ensure the given argument is a ruby string
-  Check_Type(rb_string, T_STRING);
+  Check_Type(filename, T_STRING);
 
   // Get class context
   Data_Get_Struct(self, unqliteRuby, ctx);
 
-  // Transform Ruby string into C string
-  c_string = StringValueCStr(rb_string);
-
   // Open database
-  // TODO: Accept others open mode (read-only + mmap, etc. Check http://unqlite.org/c_api/unqlite_open.html)
-  rc = unqlite_open(&ctx->pDb, c_string, UNQLITE_OPEN_CREATE);
+  rc = unqlite_open(&ctx->pDb, StringValueCStr(filename), flags);
 
   // Check if any exception should be raised
   CHECK(ctx->pDb, rc);
@@ -54,11 +78,11 @@ static VALUE unqlite_database_close(VALUE self)
 
   if (ctx->pDb)
   {
-     // Close database
-     rc = unqlite_close(ctx->pDb);
+    // Close database
+    rc = unqlite_close(ctx->pDb);
 
-     // Check for errors
-     CHECK(ctx->pDb, rc);
+    // Check for errors
+    CHECK(ctx->pDb, rc);
   }
 
   ctx->pDb = 0;
@@ -81,6 +105,38 @@ static VALUE unqlite_database_closed(VALUE self)
   {
      return Qtrue;
   }
+}
+
+/*
+ * call-seq:
+ *     UnQLite::Database.open(filename, flags = nil)
+ *
+ * If called without a block, this is synonymous to
+ * UnQLite::Database::new.  If a block is given, the new UnQLite
+ * instance will be passed to the block as a parameter, and the
+ * corresponding database file will be closed after the execution of
+ * the block code has been finished.
+ *
+ * Example for an open call with a block:
+ *
+ *   require 'unqlite'
+ *   UnQLite::Database.open("fruitstore.db") do |unq|
+ *     unq.each_pair do |key, value|
+ *       print "#{key}: #{value}\n"
+ *     end
+ *   end
+ */
+static VALUE unqlite_database_open(int argc, VALUE* argv, VALUE klass)
+{
+  VALUE obj = allocate(klass);
+
+  if (NIL_P(initialize(argc, argv, obj)))
+    return Qnil;
+
+  if (rb_block_given_p())
+    return rb_ensure(rb_yield, obj, unqlite_database_close, obj);
+  else
+    return obj;
 }
 
 static VALUE unqlite_database_store(VALUE self, VALUE key, VALUE value)
@@ -150,7 +206,7 @@ static VALUE unqlite_database_fetch(VALUE self, VALUE collection_name)
   unqlite_int64 n_bytes;
   int rc;
   unqliteRubyPtr ctx;
-  VALUE rb_string;
+  VALUE filename;
 
   // Ensure the given argument is a ruby string
   Check_Type(collection_name, T_STRING);
@@ -165,15 +221,15 @@ static VALUE unqlite_database_fetch(VALUE self, VALUE collection_name)
   if( rc != UNQLITE_OK ) { return Qnil; }
 
   // Allocate string buffer object
-  rb_string = rb_str_buf_new(n_bytes);
+  filename = rb_str_buf_new(n_bytes);
 
   // Now, fetch the data
-  rc = unqlite_kv_fetch(ctx->pDb, StringValuePtr(collection_name), RSTRING_LEN(collection_name), RSTRING_PTR(rb_string), &n_bytes);
+  rc = unqlite_kv_fetch(ctx->pDb, StringValuePtr(collection_name), RSTRING_LEN(collection_name), RSTRING_PTR(filename), &n_bytes);
   CHECK(ctx->pDb, rc);
 
-  rb_str_set_len(rb_string, n_bytes);
+  rb_str_set_len(filename, n_bytes);
 
-  return rb_string;
+  return filename;
 }
 
 static VALUE unqlite_database_has_key(VALUE self, VALUE collection_name)
@@ -496,10 +552,31 @@ void Init_unqlite_database()
   VALUE mUnqlite = rb_define_module("UnQLite");
 #endif
 
+  VALUE mUnqlite = rb_path2class("UnQLite");
+
+  /* flag for #new and #open: If the database does not exists, it is created. Otherwise, it is opened with read+write privileges. */
+  rb_define_const(mUnqlite, "CREATE", INT2FIX(UNQLITE_OPEN_CREATE));
+  /* flag for #new and #open: Open the database with read+write privileges. */
+  rb_define_const(mUnqlite, "READWRITE", INT2FIX(UNQLITE_OPEN_READWRITE));
+  /* flag for #new and #open: Open the database in a read-only mode. */
+  rb_define_const(mUnqlite, "READONLY", INT2FIX(UNQLITE_OPEN_READONLY));
+  /* flag for #new and #open: Obtain a read-only memory view of the whole database. This flag works only in conjunction with the READONLY control flag */
+  rb_define_const(mUnqlite, "MMAP", INT2FIX(UNQLITE_OPEN_MMAP));
+  /* flag for #new and #open: A private, temporary on-disk database will be created. This private database will be automatically deleted as soon as the database connection is closed. */
+  rb_define_const(mUnqlite, "TEMP_DB", INT2FIX(UNQLITE_OPEN_TEMP_DB));
+  /* flag for #new and #open: A private, temporary on-disk database will be created. This private database will be automatically deleted as soon as the database connection is closed. */
+  rb_define_const(mUnqlite, "IN_MEMORY", INT2FIX(UNQLITE_OPEN_IN_MEMORY));
+  /* flag for #new and #open: Disable journaling for this database. */
+  rb_define_const(mUnqlite, "OMIT_JOURNALING", INT2FIX(UNQLITE_OPEN_OMIT_JOURNALING));
+  /* flag for #new and #open: Disable the private recursive mutex associated with each database handle. */
+  rb_define_const(mUnqlite, "NOMUTEX", INT2FIX(UNQLITE_OPEN_NOMUTEX));
+
   /* defining UnQLite::Database class and appending its methods */
   cUnQLiteDatabase = rb_define_class_under(mUnQLite, "Database", rb_cObject);
 
   rb_define_alloc_func(cUnQLiteDatabase, allocate);
+
+  rb_define_singleton_method(cUnQLiteDatabase, "open", unqlite_database_open, -1);
 
   rb_define_method(cUnQLiteDatabase, "store", unqlite_database_store, 2);
   rb_define_method(cUnQLiteDatabase, "append", unqlite_database_append, 2);
@@ -527,6 +604,6 @@ void Init_unqlite_database()
   rb_define_method(cUnQLiteDatabase, "rollback", unqlite_database_rollback, 0);
   rb_define_method(cUnQLiteDatabase, "transaction", unqlite_database_transaction, 0);
 
-  rb_define_method(cUnQLiteDatabase, "initialize", initialize, 1);
+  rb_define_method(cUnQLiteDatabase, "initialize", initialize, -1);
   rb_define_method(cUnQLiteDatabase, "close", unqlite_database_close, 0);
 }
