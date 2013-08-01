@@ -22,11 +22,6 @@ static void closed_database()
   rb_raise(rb_eRuntimeError, "Closed database");
 }
 
-static void unqlite_database_mark(unqliteRubyPtr rdatabase)
-{
-  rb_gc_mark(rdatabase->acursors);
-}
-
 static void unqliteRuby_close(unqliteRubyPtr ctx)
 {
   if (ctx->pDb)
@@ -50,19 +45,27 @@ static void unqliteRuby_close(unqliteRubyPtr ctx)
   ctx->pDb = 0;
 }
 
-static void deallocate(unqliteRubyPtr c)
+/* Wrapped object: mark */
+static void unqlite_database_mark(unqliteRubyPtr rdatabase)
+{
+  rb_gc_mark(rdatabase->acursors);
+}
+
+/* Wrapped object: deallocate */
+static void unqlite_database_deallocate(unqliteRubyPtr c)
 {
   unqliteRuby_close(c);
   xfree(c);
 }
 
-static VALUE allocate(VALUE klass)
+/* Wrapped object: allocate */
+static VALUE unqlite_database_allocate(VALUE klass)
 {
   unqliteRubyPtr ctx = ALLOC(unqliteRuby);
   volatile VALUE rb_database;
   ctx->pDb = NULL;
   ctx->acursors = Qnil;
-  rb_database = Data_Wrap_Struct(klass, unqlite_database_mark, deallocate, ctx);
+  rb_database = Data_Wrap_Struct(klass, unqlite_database_mark, unqlite_database_deallocate, ctx);
   return rb_database;
 }
 
@@ -75,14 +78,14 @@ static VALUE allocate(VALUE klass)
  * If the file does not exist, a new file will be
  * created. _flags_ may be one of the following:
  *
- * * *UnQlite::CREATE*  - Create if database does not exist.
- * * *UnQLite::READWRITE*  - Open the database with READ+WRITE priviledged.
- * * *UnQLite::READONLY* - Open the database in read-only mode.
- * * *UnQLite::MMAP*  - Obtain a read-only memory view of the whole database.
- * * *UnQLite::TEMP_DB*  - A private, temporary on-disk database will be created.
- * * *UnQLite::IN_MEMORY*  - A private, on-memory database will be created.
- * * *UnQLite::OMIT_JOURNALING*  - Disable journaling for this database.
- * * *UnQLite::NOMUTEX*  - Disable the private recursive mutex associated with each database handle.
+ * * +UnQlite::CREATE+  - Create if database does not exist.
+ * * +UnQLite::READWRITE+  - Open the database with READ+WRITE priviledged.
+ * * +UnQLite::READONLY+ - Open the database in read-only mode.
+ * * +UnQLite::MMAP+  - Obtain a read-only memory view of the whole database.
+ * * +UnQLite::TEMP_DB+  - A private, temporary on-disk database will be created.
+ * * +UnQLite::IN_MEMORY+  - A private, on-memory database will be created.
+ * * +UnQLite::OMIT_JOURNALING+  - Disable journaling for this database.
+ * * +UnQLite::NOMUTEX+  - Disable the private recursive mutex associated with each database handle.
  *
  * If no _flags_ are specified, the UnQLite object will try to open the database
  * file as a writer and will create it if it does not already exist
@@ -117,6 +120,12 @@ static VALUE initialize(int argc, VALUE* argv, VALUE self)
   return self;
 }
 
+/*
+ * call-seq:
+ *    database.close
+ *
+ * Closes the database (automatically commits any open transaction).
+ */
 static VALUE unqlite_database_close(VALUE self)
 {
   unqliteRubyPtr ctx;
@@ -128,6 +137,12 @@ static VALUE unqlite_database_close(VALUE self)
   return Qtrue;
 }
 
+/*
+ * call-seq:
+ *    database.closed?  -> true or false
+ *
+ * Returns true if the associated database has been closed.
+ */
 static VALUE unqlite_database_closed(VALUE self)
 {
   unqliteRubyPtr ctx;
@@ -167,7 +182,7 @@ static VALUE unqlite_database_closed(VALUE self)
  */
 static VALUE unqlite_database_open(int argc, VALUE* argv, VALUE klass)
 {
-  volatile VALUE obj = allocate(klass);
+  volatile VALUE obj = unqlite_database_allocate(klass);
 
   if (NIL_P(initialize(argc, argv, obj)))
     return Qnil;
@@ -178,6 +193,14 @@ static VALUE unqlite_database_open(int argc, VALUE* argv, VALUE klass)
     return obj;
 }
 
+
+/*
+ * call-seq:
+ *    database.store key, value
+ *    database[key] = value
+ *
+ * Associates the value _value_ with the specified _key_.
+ */
 static VALUE unqlite_database_store(VALUE self, VALUE key, VALUE value)
 {
   int rc;
@@ -199,6 +222,12 @@ static VALUE unqlite_database_store(VALUE self, VALUE key, VALUE value)
   return Qtrue;
 }
 
+/*
+ * call-seq:
+ *     database.append key, value
+ *
+ * Appends the _value_ to an already existing value associated with _key_.
+ */
 static VALUE unqlite_database_append(VALUE self, VALUE key, VALUE value)
 {
   int rc;
@@ -220,6 +249,12 @@ static VALUE unqlite_database_append(VALUE self, VALUE key, VALUE value)
   return Qtrue;
 }
 
+/*
+ * call-seq:
+ *     database.delete key
+ *
+ * Removes the key-value pair with the specified _key_ from this database.
+ */
 static VALUE unqlite_database_delete(VALUE self, VALUE key)
 {
   int rc;
@@ -240,6 +275,13 @@ static VALUE unqlite_database_delete(VALUE self, VALUE key)
   return Qtrue;
 }
 
+/*
+ * call-seq:
+ *    database.fetch(key) -> value
+ *
+ * Retrieves the _value_ corresponding to _key_. If there is no value
+ * associated with _key_, an exception will be raised.
+ */
 static VALUE unqlite_database_fetch(VALUE self, VALUE collection_name)
 {
   unqlite_int64 n_bytes;
@@ -271,6 +313,16 @@ static VALUE unqlite_database_fetch(VALUE self, VALUE collection_name)
   return filename;
 }
 
+/*
+ * call-seq:
+ *     database.has_key?(key)
+ *     database.key?(key)
+ *     database.include?(key)
+ *     database.member?(key)
+ *
+ * Returns true if the given _key_ exists within the database. Returns
+ * false otherwise.
+ */
 static VALUE unqlite_database_has_key(VALUE self, VALUE collection_name)
 {
   unqliteRubyPtr ctx;
@@ -296,6 +348,13 @@ static VALUE unqlite_database_has_key(VALUE self, VALUE collection_name)
   }
 }
 
+/*
+ * call-seq:
+ *    database[key] -> value
+ *
+ * Retrieves the _value_ corresponding to _key_. If the key does not
+ * exist in the database, nil is returned.
+ */
 static VALUE unqlite_database_aref(VALUE self, VALUE collection_name)
 {
   unqlite_int64 n_bytes;
@@ -330,6 +389,13 @@ static VALUE unqlite_database_aref(VALUE self, VALUE collection_name)
   return rb_string;
 }
 
+/*
+ * call-seq:
+ *     database.begin_transaction
+ *
+ * Begins a write-transaction. Ignored if a transaction has already
+ * been opened.
+ */
 static VALUE unqlite_database_begin_transaction(VALUE self)
 {
   int rc;
@@ -347,6 +413,12 @@ static VALUE unqlite_database_begin_transaction(VALUE self)
   return Qtrue;
 }
 
+/*
+ * call-seq:
+ *     database.commit
+ *
+ * Commit all changes to the database and release the exclusive lock.
+ */
 static VALUE unqlite_database_commit(VALUE self)
 {
   int rc;
@@ -364,6 +436,12 @@ static VALUE unqlite_database_commit(VALUE self)
   return Qtrue;
 }
 
+/*
+ * call-seq:
+ *     database.rollback
+ *
+ * Rollback a write-transaction.
+ */
 static VALUE unqlite_database_rollback(VALUE self)
 {
   int rc;
@@ -381,6 +459,13 @@ static VALUE unqlite_database_rollback(VALUE self)
   return Qtrue;
 }
 
+/*
+ * call-seq:
+ *     database.end_transaction(true or false)
+ *
+ * Ends the current transaction. If argument is _true_, the
+ * transaction is commited, if _false_ it is rolled back.
+ */
 static VALUE unqlite_database_end_transaction(VALUE self, VALUE commit)
 {
   if (RTEST(commit))
@@ -405,6 +490,14 @@ static VALUE unqlite_database_transaction_ensure(VALUE self, VALUE vbargs)
   return unqlite_database_commit(self);
 }
 
+/*
+ * call-seq:
+ *     database.transaction { |db| ... }
+ *
+ * Begins a write-transaction and executes _block_. If the block
+ * executes to completion, the transaction is committed. If an
+ * exception is raise by the block, the transaction is rolled back.
+ */
 static VALUE unqlite_database_transaction(VALUE self)
 {
   VALUE vrv = unqlite_database_begin_transaction(self);
@@ -414,6 +507,14 @@ static VALUE unqlite_database_transaction(VALUE self)
   return Qtrue;
 }
 
+/*
+ * call-seq:
+ *    database.each { |key, value|  ... }
+ *    database.each_pair { |key, value|  ... }
+ *
+ * Executes _block_ for each key in the database, passing the _key_
+ * and the corresponding _value_ as parameters.
+ */
 static VALUE unqlite_database_each(VALUE self)
 {
   int rc;
@@ -461,6 +562,13 @@ static VALUE unqlite_database_each(VALUE self)
   return Qtrue;
 }
 
+/*
+ * call-seq:
+ *    database.each_value { |value|  ... }
+ *
+ * Executes _block_ for each value in the database, passing the
+ * _value_ as parameter.
+ */
 static VALUE unqlite_database_each_value(VALUE self)
 {
   int rc;
@@ -499,6 +607,13 @@ static VALUE unqlite_database_each_value(VALUE self)
   return Qtrue;
 }
 
+/*
+ * call-seq:
+ *    database.each_key { |key|  ... }
+ *
+ * Executes _block_ for each key in the database, passing the _key_
+ * and as parameter.
+ */
 static VALUE unqlite_database_each_key(VALUE self)
 {
   int rc;
@@ -537,6 +652,12 @@ static VALUE unqlite_database_each_key(VALUE self)
   return Qtrue;
 }
 
+/*
+ * call-seq:
+ *     database.clear
+ *
+ * Removes all the key-value pairs in the database.
+ */
 static VALUE unqlite_database_clear(VALUE self)
 {
   int rc;
@@ -564,6 +685,13 @@ static VALUE unqlite_database_clear(VALUE self)
   return Qtrue;
 }
 
+/*
+ * call-seq:
+ *     database.empty? -> true or false
+ *
+ * Returns _true_ if the database has no key-value pairs, false
+ * otherwise.
+ */
 static VALUE unqlite_database_empty(VALUE self)
 {
   int rc;
@@ -614,7 +742,7 @@ void Init_unqlite_database()
   /* defining UnQLite::Database class and appending its methods */
   cUnQLiteDatabase = rb_define_class_under(mUnQLite, "Database", rb_cObject);
 
-  rb_define_alloc_func(cUnQLiteDatabase, allocate);
+  rb_define_alloc_func(cUnQLiteDatabase, unqlite_database_allocate);
 
   rb_define_singleton_method(cUnQLiteDatabase, "open", unqlite_database_open, -1);
 
