@@ -147,6 +147,26 @@ module UnQLite
       @db.store "key", "value"
       assert !@db.empty?
     end
+
+    def test_max_page_cache
+      UnQLite::Database.open(db_path) do |db|
+        db.max_page_cache = 1024
+        db["key"] = "value"
+      end
+    end
+
+    def test_kv_engine
+      UnQLite::Database.open(db_path) do |db|
+        assert db.kv_engine.kind_of?(String)
+      end
+    end
+
+    # Not supports by unqlite as of version 1.1.6
+    # def test_set_kv_engine
+    #   UnQLite::Database.open(db_path) do |db|
+    #     db.kv_engine = "hash"
+    #   end
+    # end
   end
 
   class TestInMemoryDatabase < Minitest::Test
@@ -229,6 +249,16 @@ module UnQLite
       end
       assert_raises(UnQLite::NotFoundException) { @db.fetch("alpha") }
       assert_raises(UnQLite::NotFoundException) { @db.fetch("beta") }
+    end
+
+    def test_disable_auto_commit
+      UnQLite::Database.open(db_path) do |db|
+        db.disable_auto_commit
+        db["key"] = "value"
+      end
+      UnQLite::Database.open(db_path) do |db|
+        assert !db.include?("key")
+      end
     end
   end
 

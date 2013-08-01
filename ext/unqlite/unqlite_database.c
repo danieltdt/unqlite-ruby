@@ -714,6 +714,93 @@ static VALUE unqlite_database_empty(VALUE self)
   return result;
 }
 
+/*
+ * call-seq:
+ *     database.max_page_cache = count
+ *
+ * Sets the maximum raw pages to cache in memory. This is a simple
+ * hint, UnQLite is not forced to honor it.
+ */
+static VALUE unqlite_database_set_max_page_cache(VALUE self, VALUE count)
+{
+  int rc;
+  unqliteRubyPtr ctx;
+  unqlite* db;
+
+  GetDatabase2(self, ctx, db);
+
+  rc = unqlite_config(db, UNQLITE_CONFIG_MAX_PAGE_CACHE, NUM2INT(count));
+  CHECK(db, rc);
+
+  return count;
+}
+
+/*
+ * call-seq:
+ *     database.kv_engine = engine
+ *
+ * Switch to another Key/Value storage engine.
+ */
+static VALUE unqlite_database_set_kv_engine(VALUE self, VALUE engine)
+{
+  int rc;
+  unqliteRubyPtr ctx;
+  unqlite* db;
+
+  GetDatabase2(self, ctx, db);
+
+  SafeStringValue(engine);
+  rc = unqlite_config(db, UNQLITE_CONFIG_KV_ENGINE, RSTRING_PTR(engine));
+  CHECK(db, rc);
+
+  return engine;
+}
+
+/*
+ * call-seq:
+ *     database.kv_engine -> engine
+ *
+ * Extract the name of the underlying Key/Value storage engine
+ * (i.e. Hash, Mem, R+Tree, LSM, etc.).
+ */
+static VALUE unqlite_database_get_kv_engine(VALUE self)
+{
+  int rc;
+  unqliteRubyPtr ctx;
+  unqlite* db;
+  const char* name;
+
+  GetDatabase2(self, ctx, db);
+
+  rc = unqlite_config(db, UNQLITE_CONFIG_GET_KV_NAME, &name);
+  CHECK(db, rc);
+
+  return rb_str_new_cstr(name);
+}
+
+/*
+ * call-seq:
+ *     database.disable_auto_commit
+ *
+ * Normally, If #close is invoked while a transaction is open, the
+ * transaction is automatically committed. But, if this option is set,
+ * then the transaction is automatically rolled back and you should
+ * call #commit manually to commit all database changes.
+ */
+static VALUE unqlite_database_disable_auto_commit(VALUE self)
+{
+  int rc;
+  unqliteRubyPtr ctx;
+  unqlite* db;
+
+  GetDatabase2(self, ctx, db);
+
+  rc = unqlite_config(db, UNQLITE_CONFIG_DISABLE_AUTO_COMMIT, 0);
+  CHECK(db, rc);
+
+  return Qnil;
+}
+
 void Init_unqlite_database()
 {
 #if 0
@@ -774,4 +861,9 @@ void Init_unqlite_database()
 
   rb_define_method(cUnQLiteDatabase, "initialize", initialize, -1);
   rb_define_method(cUnQLiteDatabase, "close", unqlite_database_close, 0);
+
+  rb_define_method(cUnQLiteDatabase, "max_page_cache=", unqlite_database_set_max_page_cache, 1);
+  rb_define_method(cUnQLiteDatabase, "kv_engine=", unqlite_database_set_kv_engine, 1);
+  rb_define_method(cUnQLiteDatabase, "kv_engine", unqlite_database_get_kv_engine, 0);
+  rb_define_method(cUnQLiteDatabase, "disable_auto_commit", unqlite_database_disable_auto_commit, 0);
 }
