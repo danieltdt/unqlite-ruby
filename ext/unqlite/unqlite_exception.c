@@ -70,18 +70,16 @@ void rb_unqlite_raise(unqlite *db, int rc)
     const char *buffer;
     int length;
 
-    // Rollback, please.
-    if( rc != UNQLITE_BUSY && rc != UNQLITE_NOTIMPLEMENTED ) {
-      unqlite_rollback(db);
-    }
-
-    /* Get error from log */
+    // Try to get error from log (though only available on commit,
+    // rollback, store & append).
     unqlite_config(db, UNQLITE_CONFIG_ERR_LOG, &buffer, &length);
 
     // Raise it!
     if( length > 0 )
       rb_raise(klass, "%s", buffer);
-    else
-      rb_raise(klass, "(couldn't retrieve the error message)");
+    else {
+       VALUE klass_name = rb_class_name(klass);
+       rb_raise(klass, "%s", StringValueCStr(klass_name));
+    }
   }
 }
