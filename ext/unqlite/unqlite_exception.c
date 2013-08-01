@@ -68,11 +68,11 @@ void rb_unqlite_raise(unqlite *db, int rc)
 
   if( !NIL_P(klass) ) { // Is really an error?
     const char *buffer;
-    int length;
+    int length = 0;
 
-    // Try to get error from log (though only available on commit,
-    // rollback, store & append).
-    unqlite_config(db, UNQLITE_CONFIG_ERR_LOG, &buffer, &length);
+    /* Get error from log */
+    if (db)
+      unqlite_config(db, UNQLITE_CONFIG_ERR_LOG, &buffer, &length);
 
     // Raise it!
     if( length > 0 )

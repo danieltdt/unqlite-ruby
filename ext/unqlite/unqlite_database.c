@@ -1,21 +1,50 @@
 #include <unqlite_database.h>
+#include <unqlite_cursor.h>
 
 VALUE cUnQLiteDatabase;
 
+static void unqlite_database_mark(unqliteRubyPtr rdatabase)
+{
+  rb_gc_mark(rdatabase->acursors);
+}
+
+static void unqliteRuby_close(unqliteRubyPtr ctx)
+{
+  if (ctx->pDb)
+  {
+    VALUE cur;
+    int rc;
+
+    /* close lingering cursors */
+    if (!NIL_P(ctx->acursors) && RARRAY_LEN(ctx->acursors) > 0) {
+      while ((cur = rb_ary_pop(ctx->acursors)) != Qnil)
+        unqlite_cursor_release(cur);
+    }
+
+    // Close database
+    rc = unqlite_close(ctx->pDb);
+
+    // Check for errors
+    CHECK(ctx->pDb, rc);
+  }
+
+  ctx->pDb = 0;
+}
+
 static void deallocate(unqliteRubyPtr c)
 {
-  unqlite *pDb = c->pDb;
-  c->pDb = 0;
-  if (pDb) unqlite_close(pDb);
+  unqliteRuby_close(c);
   xfree(c);
 }
 
 static VALUE allocate(VALUE klass)
 {
   unqliteRubyPtr ctx = ALLOC(unqliteRuby);
+  volatile VALUE rb_database;
   ctx->pDb = NULL;
-
-  return Data_Wrap_Struct(klass, NULL, deallocate, ctx);
+  ctx->acursors = Qnil;
+  rb_database = Data_Wrap_Struct(klass, unqlite_database_mark, deallocate, ctx);
+  return rb_database;
 }
 
 /*
@@ -62,6 +91,8 @@ static VALUE initialize(int argc, VALUE* argv, VALUE self)
   // Open database
   rc = unqlite_open(&ctx->pDb, StringValueCStr(filename), flags);
 
+  ctx->acursors = rb_ary_new();
+
   // Check if any exception should be raised
   CHECK(ctx->pDb, rc);
 
@@ -70,23 +101,12 @@ static VALUE initialize(int argc, VALUE* argv, VALUE self)
 
 static VALUE unqlite_database_close(VALUE self)
 {
-  int rc;
   unqliteRubyPtr ctx;
 
   // Get class context
   Data_Get_Struct(self, unqliteRuby, ctx);
 
-  if (ctx->pDb)
-  {
-    // Close database
-    rc = unqlite_close(ctx->pDb);
-
-    // Check for errors
-    CHECK(ctx->pDb, rc);
-  }
-
-  ctx->pDb = 0;
-
+  unqliteRuby_close(ctx);
   return Qtrue;
 }
 
@@ -128,7 +148,7 @@ static VALUE unqlite_database_closed(VALUE self)
  */
 static VALUE unqlite_database_open(int argc, VALUE* argv, VALUE klass)
 {
-  VALUE obj = allocate(klass);
+  volatile VALUE obj = allocate(klass);
 
   if (NIL_P(initialize(argc, argv, obj)))
     return Qnil;
@@ -206,7 +226,7 @@ static VALUE unqlite_database_fetch(VALUE self, VALUE collection_name)
   unqlite_int64 n_bytes;
   int rc;
   unqliteRubyPtr ctx;
-  VALUE filename;
+  volatile VALUE filename;
 
   // Ensure the given argument is a ruby string
   Check_Type(collection_name, T_STRING);
@@ -262,7 +282,7 @@ static VALUE unqlite_database_aref(VALUE self, VALUE collection_name)
   unqlite_int64 n_bytes;
   int rc;
   unqliteRubyPtr ctx;
-  VALUE rb_string;
+  volatile VALUE rb_string;
 
   // Ensure the given argument is a ruby string
   Check_Type(collection_name, T_STRING);
@@ -392,7 +412,7 @@ static VALUE unqlite_database_each(VALUE self)
   {
      int key_size;
      unqlite_int64 data_size;
-     VALUE rb_key, rb_data;
+     volatile VALUE rb_key, rb_data;
 
      // Create Ruby String with key
      rc = unqlite_kv_cursor_key(cursor, NULL, &key_size);
@@ -438,7 +458,7 @@ static VALUE unqlite_database_each_value(VALUE self)
   while (unqlite_kv_cursor_valid_entry(cursor))
   {
      unqlite_int64 data_size;
-     VALUE rb_data;
+     volatile VALUE rb_data;
 
      // Create Ruby String with data
      rc = unqlite_kv_cursor_data(cursor, NULL, &data_size);
@@ -476,7 +496,7 @@ static VALUE unqlite_database_each_key(VALUE self)
   while (unqlite_kv_cursor_valid_entry(cursor))
   {
      int key_size;
-     VALUE rb_key;
+     volatile VALUE rb_key;
 
      // Create Ruby String with key
      rc = unqlite_kv_cursor_key(cursor, NULL, &key_size);
@@ -530,7 +550,7 @@ static VALUE unqlite_database_empty(VALUE self)
   int rc;
   unqliteRubyPtr ctx;
   unqlite_kv_cursor *cursor;
-  VALUE result;
+  volatile VALUE result;
 
   Data_Get_Struct(self, unqliteRuby, ctx);
 

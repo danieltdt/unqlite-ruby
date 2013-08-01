@@ -5,6 +5,7 @@
 
 struct _unqliteRuby {
   unqlite *pDb;
+  VALUE acursors;
 };
 
 typedef struct _unqliteRuby unqliteRuby;

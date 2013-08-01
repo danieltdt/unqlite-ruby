@@ -8,4 +8,5 @@ void Init_unqlite_native()
 
   Init_unqlite_database();
   Init_unqlite_codes();
+  Init_unqlite_cursor();
 }
