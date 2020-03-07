@@ -4,15 +4,15 @@ require 'unqlite'
 
 module UnQLite
   class CursorTest < Minitest::Test
-    attr_accessor :db_path, :db
+    attr_reader :db_path, :db
     def setup
-      @db_path = File.join(Dir.tmpdir, Dir::Tmpname.make_tmpname("unqlite-ruby-test", nil))
+      @db_path = "#{Dir.mktmpdir("unqlite-ruby-test")}/db"
       @db = UnQLite::Database.open(@db_path)
     end
 
     def teardown
-      @db.close
-      File.unlink(@db_path) if File.exist?(@db_path)
+      db.close
+      FileUtils.remove_entry(db_path) if File.exist?(db_path)
     end
 
     def test_key_value

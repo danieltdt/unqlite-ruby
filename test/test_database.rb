@@ -265,11 +265,11 @@ module UnQLite
   class TestOpen < Minitest::Test
     attr_reader :db_path
     def setup
-      @db_path = File.join(Dir.tmpdir, Dir::Tmpname.make_tmpname("unqlite-ruby-test", nil))
+      @db_path = "#{Dir.mktmpdir("unqlite-ruby-test")}/db"
     end
 
     def teardown
-      File.unlink(db_path) if File.exist?(db_path)
+      FileUtils.remove_entry(db_path) if File.exist?(db_path)
     end
 
     def test_open
